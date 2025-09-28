@@ -1,0 +1,40 @@
+name: Build & Deploy ContosoUniversity (.NET Framework) to Azure Web App
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup NuGet
+      uses: NuGet/setup-nuget@v2
+
+    - name: Restore NuGet packages
+      run: nuget restore ./src/ContosoUniversity.sln
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Build web package
+      run: >
+        msbuild .\src\ContosoUniversity.sln
+        /p:Configuration=Release
+        /p:DeployOnBuild=true
+        /p:WebPublishMethod=Package
+        /p:PackageAsSingleFile=true
+        /p:SkipInvalidConfigurations=true
+        /p:PackageLocation="${{ github.workspace }}\drop\web.zip"
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: monitoring2-web
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ${{ github.workspace }}\drop\web.zip

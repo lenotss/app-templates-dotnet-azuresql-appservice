@@ -1,4 +1,4 @@
-name: Build & Deploy ContosoUniversity (.NET Framework) to Azure Web App
+name: Build & Deploy ContosoUniversity (ASP.NET Core) to Azure Web App
 
 on:
   push:
@@ -13,28 +13,23 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Setup NuGet
-      uses: NuGet/setup-nuget@v2
+    - name: Setup .NET 6.0.300
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '6.0.300'
 
-    - name: Restore NuGet packages
-      run: nuget restore ./src/ContosoUniversity.sln
+    - name: Restore
+      run: dotnet restore ./src/ContosoUniversity.WebApplication/ContosoUniversity.WebApplication.csproj
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+    - name: Publish (self-contained win-x86)
+      run: dotnet publish ./src/ContosoUniversity.WebApplication/ContosoUniversity.WebApplication.csproj -c Release -r win-x86 --self-contained true -o ./publish
 
-    - name: Build web package
-      run: >
-        msbuild .\src\ContosoUniversity.sln
-        /p:Configuration=Release
-        /p:DeployOnBuild=true
-        /p:WebPublishMethod=Package
-        /p:PackageAsSingleFile=true
-        /p:SkipInvalidConfigurations=true
-        /p:PackageLocation="${{ github.workspace }}\drop\web.zip"
+    - name: Zip artifact
+      run: powershell -c "Compress-Archive -Path ./publish/* -DestinationPath ./web.zip"
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v3
       with:
         app-name: monitoring2-web
         publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: ${{ github.workspace }}\drop\web.zip
+        package: ./web.zip
